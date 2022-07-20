@@ -112,9 +112,7 @@ app.post('/api/users/:_id/exercises',
     {$push: {log: newExercise}},
     {new: true},
     (error, updatedUser) => {
-      if(error) {
-        return response.status(400).json('Something went wrong. Check fields in the form, please.');
-      } else {
+      if(!error && updatedUser) {
         const userObjectWithLog = {}
         userObjectWithLog['userId'] = updatedUser.id
         userObjectWithLog['description'] = newExercise.description
@@ -123,6 +121,8 @@ app.post('/api/users/:_id/exercises',
         userObjectWithLog['exerciseId'] = newExercise._id
 
         response.json(userObjectWithLog)
+      } else {
+        return response.status(400).json('Oops. Something went wrong.');
       }
     }
   )
@@ -131,7 +131,7 @@ app.post('/api/users/:_id/exercises',
 // GET logs for any user
 app.get('/api/users/:_id/logs', (request, response) => {
   User.findById(request.params._id, (error, result) => {
-    try {
+    if (!error && result) {
       let userExerciseLogObj = result;
       let countOfLogs;
 
@@ -170,7 +170,7 @@ app.get('/api/users/:_id/logs', (request, response) => {
       userExerciseLogObj = userExerciseLogObj.toJSON();
       userExerciseLogObj['count'] = countOfLogs;
       response.json(userExerciseLogObj);
-    } catch (error) {
+    } else {
       return response.status(404).json('Oops, something went wrong');
     }
   });
