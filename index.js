@@ -5,8 +5,10 @@ require('dotenv').config()
 
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
+const { body, validationResult } = require('express-validator');
 
-const Exercise = require('./models/exercise.model');
+const exerciseModel = require('./models/exercise.model');
+const Exercise = exerciseModel.Exercise;
 const User = require('./models/user.model')
 
 const username = process.env.USERNAME;
@@ -42,8 +44,14 @@ const listener = app.listen(process.env.PORT || 3000, () => {
 
 
 //Add new user
-app.post('/api/users', bodyParser.urlencoded({extended: false}), (request, response) => {
+app.post('/api/users', bodyParser.urlencoded({extended: false}), body('username').isLength({min: 1}), (request, response) => {
   const newUser = new User({username: request.body.username});
+
+  const errors = validationResult(request);
+
+  if (!errors.isEmpty()) {
+      return response.status(400).json(`Username field shouldn't be empty. Please, enter a name`);
+  }
 
   newUser.save((err, savedUser) => {
     if (err) {
@@ -54,10 +62,6 @@ app.post('/api/users', bodyParser.urlencoded({extended: false}), (request, respo
       // Some other error
       return response.status(500).json(err);
     } else {
-      if (!request.body.username.trim().length) {
-        return response.status(400).json(`Username field shouldn't be empty. Please, enter a name`)
-      }
-
       const responseObj = {};
       responseObj['username'] = savedUser.username
       responseObj['_id'] = savedUser.id
@@ -69,8 +73,12 @@ app.post('/api/users', bodyParser.urlencoded({extended: false}), (request, respo
 // get ALL users
 app.get('/api/users', (request, response) => {
   User.find({}, (err, arrayOfUsers) => {
+    const usersResponseObj = arrayOfUsers.map(({username, _id}) => {
+      return { username, _id }
+    })
+
     if (!err) {
-      response.json(arrayOfUsers)
+      response.json(usersResponseObj)
     } else {
       response.status(500).json('Oops, something went wrong')
     }
@@ -115,6 +123,7 @@ app.get('/api/users/:_id/logs', (request, response) => {
   User.findById(request.params._id, (error, result) => {
     if(!error) {
       let userExerciseLogObj = result;
+      let countOfLogs;
 
       if(request.query.from || request.query.to) {
         let fromDate = new Date(0);
@@ -137,25 +146,22 @@ app.get('/api/users/:_id/logs', (request, response) => {
           return exerciseDate >= fromDate && exerciseDate <= toDate;
         });
         
-      }
-
-      if (!userExerciseLogObj.log.length) {
-        return response.status(404).json('Not found. No exercises in this period of time');
+        countOfLogs = userExerciseLogObj.log.length;
       }
       
-      if (request.query.count) {
-        userExerciseLogObj.log = userExerciseLogObj.log.slice(0, request.query.count);
+      if (request.query.limit) {
+        userExerciseLogObj.log = userExerciseLogObj.log.slice(0, request.query.limit);
       }
 
-      if (request.query.count > userExerciseLogObj.log.length) {
+      if (request.query.limit > userExerciseLogObj.log.length) {
         return response.status(400).json(`This user has only ${userExerciseLogObj.log.length} exercises`);
       }
       
       userExerciseLogObj = userExerciseLogObj.toJSON();
-      userExerciseLogObj['count'] = result.log.length;
+      userExerciseLogObj['count'] = countOfLogs;
       response.json(userExerciseLogObj);
     } else {
-      response.status(400).json('Oops, something went wrong');
+      response.status(404).json('Oops, something went wrong');
     }
   });
 });

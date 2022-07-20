@@ -5,7 +5,7 @@ const userSchema = new mongoose.Schema({
   username: {
     type: String
   },
-  log: [exerciseSchema]
+  log: [exerciseSchema.exerciseSchema]
 });
 
 const User = mongoose.model('User', userSchema);
