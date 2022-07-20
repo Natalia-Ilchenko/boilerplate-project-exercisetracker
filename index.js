@@ -44,7 +44,7 @@ const listener = app.listen(process.env.PORT || 3000, () => {
 
 
 //Add new user
-app.post('/api/users', bodyParser.urlencoded({extended: false}), body('username').isLength({min: 1}), (request, response) => {
+app.post('/api/users', bodyParser.urlencoded({extended: false}), body('username').trim().isLength({min: 1}), (request, response) => {
   const newUser = new User({username: request.body.username});
 
   const errors = validationResult(request);
@@ -78,27 +78,37 @@ app.get('/api/users', (request, response) => {
     })
 
     if (!err) {
-      response.json(usersResponseObj)
+      return response.json(usersResponseObj)
     } else {
-      response.status(500).json('Oops, something went wrong')
+      return response.status(500).json('Oops, something went wrong')
     }
   })
 })
 
 // ADD new exercise
-app.post('/api/users/:_id/exercises', bodyParser.urlencoded({extended: false}), (request, response) => {
-  const newExercise = new Exercise({
-    description: request.body.description,
-    duration: parseInt(request.body.duration),
-    date: request.body.date
-  })
+app.post('/api/users/:_id/exercises', 
+  bodyParser.urlencoded({extended: false}), 
+  body('duration').trim().isLength({min: 1}), 
+  body('description').trim().isLength({min: 1}), 
+  (request, response) => {
+    const errors = validationResult(request);
 
-  if(newExercise.date === '') {
-    newExercise.date = new Date().toISOString().substring(0, 10)
-  }
+    if (!errors.isEmpty()) {
+        return response.status(400).json(`The field shouldn't be empty. Please, add something`);
+    }
+  
+    const newExercise = new Exercise({
+      description: request.body.description,
+      duration: parseInt(request.body.duration),
+      date: request.body.date
+    })
+
+    if(newExercise.date === '') {
+      newExercise.date = new Date().toISOString().substring(0, 10)
+    }
 
   User.findByIdAndUpdate(
-    request.body[':_id'],
+    request.params['_id'],
     {$push: {log: newExercise}},
     {new: true},
     (error, updatedUser) => {
@@ -106,11 +116,11 @@ app.post('/api/users/:_id/exercises', bodyParser.urlencoded({extended: false}), 
         return response.status(400).json('Something went wrong. Check fields in the form, please.');
       } else {
         const userObjectWithLog = {}
-        userObjectWithLog['_id'] = updatedUser.id
+        userObjectWithLog['userId'] = updatedUser.id
         userObjectWithLog['description'] = newExercise.description
         userObjectWithLog['duration'] = newExercise.duration
         userObjectWithLog['date'] = new Date(newExercise.date).toDateString()
-        userObjectWithLog['username'] = updatedUser.username
+        userObjectWithLog['exerciseId'] = newExercise._id
 
         response.json(userObjectWithLog)
       }
@@ -121,7 +131,7 @@ app.post('/api/users/:_id/exercises', bodyParser.urlencoded({extended: false}), 
 // GET logs for any user
 app.get('/api/users/:_id/logs', (request, response) => {
   User.findById(request.params._id, (error, result) => {
-    if(!error) {
+    try {
       let userExerciseLogObj = result;
       let countOfLogs;
 
@@ -160,8 +170,8 @@ app.get('/api/users/:_id/logs', (request, response) => {
       userExerciseLogObj = userExerciseLogObj.toJSON();
       userExerciseLogObj['count'] = countOfLogs;
       response.json(userExerciseLogObj);
-    } else {
-      response.status(404).json('Oops, something went wrong');
+    } catch (error) {
+      return response.status(404).json('Oops, something went wrong');
     }
   });
 });
