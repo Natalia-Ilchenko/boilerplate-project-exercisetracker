@@ -103,7 +103,7 @@ app.post('/api/users/:_id/exercises',
       date: request.body.date
     })
 
-    if(newExercise.date === '') {
+    if(!newExercise.date) {
       newExercise.date = new Date().toISOString().substring(0, 10)
     }
 
@@ -156,8 +156,8 @@ app.get('/api/users/:_id/logs', (request, response) => {
           return exerciseDate >= fromDate && exerciseDate <= toDate;
         });
         
-        countOfLogs = userExerciseLogObj.log.length;
       }
+      countOfLogs = userExerciseLogObj.log.length;
       
       if (request.query.limit) {
         userExerciseLogObj.log = userExerciseLogObj.log.slice(0, request.query.limit);
